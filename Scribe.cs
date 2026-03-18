@@ -43,8 +43,7 @@ namespace BeastScribe.Scribes
 
     public sealed class ScribeWriter : BaseScribe<SerializationWriter>
     {
-        static readonly Lazy<ScribeWriter> _writer = new(() => new ScribeWriter());
-        public static ScribeWriter Writer => _writer.Value;
+        public static readonly ScribeWriter Writer = new();
         ScribeWriter()
         {
 
@@ -60,8 +59,7 @@ namespace BeastScribe.Scribes
 
     public sealed class ScribeReader : BaseScribe<SerializationReader>
     {
-        static readonly Lazy<ScribeReader> _reader = new(() => new ScribeReader());
-        public static ScribeReader Reader => _reader.Value;
+        public static readonly ScribeReader Reader = new();
         ScribeReader()
         {
 

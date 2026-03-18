@@ -6,8 +6,8 @@ namespace BeastScribe
 {
     public static class Scribe
     {
-        public static ScribeWriter Writer => ScribeWriter.Writer;
-        public static ScribeReader Reader => ScribeReader.Reader;
+        public static ScribeWriter Writer = ScribeWriter.Writer;
+        public static ScribeReader Reader = ScribeReader.Reader;
     }
 
 }
