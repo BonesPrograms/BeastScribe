@@ -5,6 +5,7 @@ using XRL.World.Parts.Mutation;
 using System.Linq;
 using System.Collections.Generic;
 using System.ComponentModel;
+using XRL.World.Parts;
 
 namespace BeastScribe.Scribes
 {
@@ -19,12 +20,23 @@ namespace BeastScribe.Scribes
         {
 
         }
-        protected abstract void AccessInstance(T serializer, object instance, Type type, int count);
+        protected abstract void AccessInstance(T serializer, object instance, Type type, int count, bool privateExcluded);
 
-        public void Scribe(T serializer, BaseMutation mutation)
+        public void SafeScribe(T serializer, IPart instance, Type[] excludePrivate)
         {
-            LoopInheritance(serializer, mutation, typeof(IPart));
+            LoopInheritance(serializer, instance, typeof(IPart), excludePrivate);
         }
+
+        public void SafeScribe(T serializer, Effect instance, Type[] excludePrivate)
+        {
+            LoopInheritance(serializer, instance, typeof(Effect), excludePrivate);
+        }
+
+        public void Scribe(T serializer, BaseMutation instance)
+        {
+            LoopInheritance(serializer, instance, typeof(IPart), new Type[] { typeof(BaseMutation) });
+        }
+
         public void Scribe(T serializer, Effect instance)
         {
             LoopInheritance(serializer, instance, typeof(Effect));
@@ -32,8 +44,7 @@ namespace BeastScribe.Scribes
 
         public void Scribe(T serializer, IPart instance)
         {
-            if (DebugCheck(instance))
-                LoopInheritance(serializer, instance, typeof(IPart));
+            LoopInheritance(serializer, instance, typeof(IPart));
         }
 
         public void Scribe(T serializer, IComposite instance)
@@ -41,15 +52,23 @@ namespace BeastScribe.Scribes
             LoopInheritance(serializer, instance, null);
         }
 
-        static bool DebugCheck(IComponent<GameObject> instance) => instance.GetBasisGameObject().IsPlayer();
-        void LoopInheritance(T serializer, object instance, Type limit)
+        void LoopInheritance(T serializer, object instance, Type limit, Type[] excludePrivate = null)
         {
             int count = 0;
             Type type = instance.GetType();
+            bool excludePrivateFields = false;
             while (type != limit)
             {
-
-                AccessInstance(serializer, instance, type, count);
+                if (excludePrivate != null)
+                {
+                    excludePrivateFields = false;
+                    for (int i = 0; i < excludePrivate.Length; i++)
+                    {
+                        if (excludePrivate[i] == type)
+                            excludePrivateFields = true;
+                    }
+                }
+                AccessInstance(serializer, instance, type, count, excludePrivateFields);
                 type = type.BaseType;
                 count++;
 
@@ -80,7 +99,7 @@ namespace BeastScribe.Scribes
         {
 
         }
-        protected override void AccessInstance(SerializationWriter writer, object instance, Type type, int count)
+        protected override void AccessInstance(SerializationWriter writer, object instance, Type type, int count, bool privateExcluded)
         {
             BindingFlags flags = count == 0 ? InheritorFlags : BaseTypeFlags;
             FieldInfo[] fields = type.GetFields(flags);
@@ -94,7 +113,7 @@ namespace BeastScribe.Scribes
                     if ((field.Attributes & Attributes) == 0)
                         serializeableCount++;
                 }
-                else if (field.IsPrivate && ((field.Attributes & Attributes) == 0))
+                else if (!privateExcluded && field.IsPrivate && ((field.Attributes & Attributes) == 0))
                     serializeableCount++;
             }
             writer.WriteOptimized(serializeableCount);
@@ -112,7 +131,7 @@ namespace BeastScribe.Scribes
                         serializeableCount--;
                     }
                 }
-                else if (field.IsPrivate && ((field.Attributes & Attributes) == 0)) //ensured that only private fields of base classes are serialized, not protected ones
+                else if (!privateExcluded && field.IsPrivate && ((field.Attributes & Attributes) == 0)) //ensured that only private fields of base classes are serialized, not protected ones
                 {
                     writer.WriteOptimized(field.Name);
                     writer.WriteObject(field.GetValue(instance));
@@ -132,7 +151,7 @@ namespace BeastScribe.Scribes
         {
 
         }
-        protected override void AccessInstance(SerializationReader reader, object instance, Type type, int count)
+        protected override void AccessInstance(SerializationReader reader, object instance, Type type, int count, bool privateEcxluded)
         {
             BindingFlags flags = count == 0 ? InheritorFlags : BaseTypeFlags;
             FieldInfo[] fields = type.GetFields(flags);
