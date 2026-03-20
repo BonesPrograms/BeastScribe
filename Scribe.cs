@@ -6,7 +6,6 @@ using System.Linq;
 using System.Collections.Generic;
 using System.ComponentModel;
 using XRL.World.Parts;
-using System.EnterpriseServices;
 
 namespace BeastScribe.Scribes
 {
@@ -173,10 +172,12 @@ namespace BeastScribe.Scribes
         }
         protected override void AccessInstance(SerializationReader reader, object instance, Type type, int count, bool privateExcluded)
         {
-            BindingFlags flags = count == 0 ? InheritorFlags : BaseTypeFlags;
-            FieldInfo[] fields = type.GetFields(flags);
             if (!privateExcluded)
+            {
+                BindingFlags flags = count == 0 ? InheritorFlags : BaseTypeFlags;
+                FieldInfo[] fields = type.GetFields(flags);
                 Read(reader, fields, instance);
+            }
 
         }
 
