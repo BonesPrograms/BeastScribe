@@ -161,7 +161,7 @@ namespace BeastScribe.Scribes
 
         }
 
-        public static void ReadDirect(SerializationReader reader, object instance)
+        public void ReadDirect(SerializationReader reader, object instance)
         {
             Type type = instance.GetType();
             FieldInfo[] fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
