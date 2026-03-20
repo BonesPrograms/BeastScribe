@@ -15,9 +15,9 @@ namespace BeastScribe.Scribes
         protected const BindingFlags InheritorFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;//will include all inherited protected and public fields
         protected const BindingFlags BaseTypeFlags = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly; //will include protected fields that the inheritor has 
                                                                                                                                  // already serialized, needs further sifting to only be private                                                                
-        private protected BaseScribe()                                                                  
-        {                                                                                               
-                                                                                                        
+        private protected BaseScribe()
+        {
+
         }
         protected abstract void AccessInstance(T serializer, object instance, Type type, int count, bool privateExcluded);
 
@@ -78,6 +78,8 @@ namespace BeastScribe.Scribes
         {
             LoopInheritance(serializer, instance, typeof(Effect), excludePrivate);
         }
+
+
         protected override void AccessInstance(SerializationWriter writer, object instance, Type type, int count, bool privateExcluded)
         {
             BindingFlags flags = count == 0 ? InheritorFlags : BaseTypeFlags;
@@ -120,6 +122,34 @@ namespace BeastScribe.Scribes
             }
         }
 
+        public void WriteDirect(SerializationWriter serializer, object instance)
+        {
+            Type type = instance.GetType();
+            FieldInfo[] fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            int size = fields.Length;
+            int serializeableCount = 0;
+            for (int i = 0; i < size; i++)
+            {
+                FieldInfo field = fields[i];
+                if (!field.IsNotSerialized)
+                    serializeableCount++;
+            }
+            serializer.WriteOptimized(serializeableCount);
+            for (int i = 0; i < size; i++)
+            {
+                if (serializeableCount <= 0)
+                    break;
+                FieldInfo field = fields[i];
+                if (!field.IsNotSerialized)
+                {
+                    serializer.WriteOptimized(field.Name);
+                    serializer.WriteObject(field.GetValue(instance));
+                    serializeableCount--;
+                }
+            }
+
+        }
+
     }
 
 
@@ -130,10 +160,23 @@ namespace BeastScribe.Scribes
         {
 
         }
+
+        public static void ReadDirect(SerializationReader reader, object instance)
+        {
+            Type type = instance.GetType();
+            FieldInfo[] fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Read(reader, fields, instance);
+        }
         protected override void AccessInstance(SerializationReader reader, object instance, Type type, int count, bool privateExcluded)
         {
             BindingFlags flags = count == 0 ? InheritorFlags : BaseTypeFlags;
             FieldInfo[] fields = type.GetFields(flags);
+            Read(reader, fields, instance);
+
+        }
+
+        static void Read(SerializationReader reader, FieldInfo[] fields, object instance)
+        {
             int serializedCount = reader.ReadOptimizedInt32();
             for (int i = 0; i < serializedCount; i++)
             {
