@@ -12,7 +12,6 @@ namespace BeastScribe.Scribes
 
     public abstract class BaseScribe<T>
     {
-        static readonly FieldInfo[] BaseMutationFields = GetBaseMutationFields();
         protected const BindingFlags InheritorFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;//will include all inherited protected and public fields
         protected const BindingFlags BaseTypeFlags = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly; //will include protected fields that the inheritor has 
                                                                                                                                  // already serialized, needs further sifting to only be private                                                                
@@ -21,21 +20,6 @@ namespace BeastScribe.Scribes
 
         }
         protected abstract void AccessInstance(T serializer, object instance, Type type, int count, bool privateExcluded);
-
-        public void SafeScribe(T serializer, IPart instance, Type[] excludePrivate)
-        {
-            LoopInheritance(serializer, instance, typeof(IPart), excludePrivate);
-        }
-
-        public void SafeScribe(T serializer, Effect instance, Type[] excludePrivate)
-        {
-            LoopInheritance(serializer, instance, typeof(Effect), excludePrivate);
-        }
-
-        public void Scribe(T serializer, BaseMutation instance)
-        {
-            LoopInheritance(serializer, instance, typeof(IPart), new Type[] { typeof(BaseMutation) });
-        }
 
         public void Scribe(T serializer, Effect instance)
         {
@@ -47,12 +31,12 @@ namespace BeastScribe.Scribes
             LoopInheritance(serializer, instance, typeof(IPart));
         }
 
-        public void Scribe(T serializer, IComposite instance)
+        public void Scribe(T serializer, IComposite instance, Type limit = null) //null means it will stop at System.Object
         {
-            LoopInheritance(serializer, instance, null);
+            LoopInheritance(serializer, instance, limit);
         }
 
-        void LoopInheritance(T serializer, object instance, Type limit, Type[] excludePrivate = null)
+        protected void LoopInheritance(T serializer, object instance, Type limit, Type[] excludePrivate = null)
         {
             int count = 0;
             Type type = instance.GetType();
@@ -74,30 +58,27 @@ namespace BeastScribe.Scribes
 
             }
         }
-        static FieldInfo[] GetBaseMutationFields() //gets public only fields for baseMutation on program start
-        {
-            BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
-            FieldInfo[] fields = typeof(BaseMutation).GetFields(flags).Where(x => !x.IsNotSerialized).ToArray();
-            return fields;
-        }
-
-
-        void LoopMutation(T serializer, BaseMutation instance)
-        {
-            Type type = instance.GetType();
-
-        }
 
     }
 
     public sealed class ScribeWriter : BaseScribe<SerializationWriter>
     {
 
-        const FieldAttributes Attributes = FieldAttributes.NotSerialized | FieldAttributes.Static | FieldAttributes.Literal;
+        const FieldAttributes Mask = FieldAttributes.NotSerialized | FieldAttributes.Static | FieldAttributes.Literal;
         public static readonly ScribeWriter Writer = new();
         ScribeWriter()
         {
 
+        }
+
+        public void SafeWrite(SerializationWriter serializer, IPart instance, Type[] excludePrivate)
+        {
+            LoopInheritance(serializer, instance, typeof(IPart), excludePrivate);
+        }
+
+        public void SafeWrite(SerializationWriter serializer, Effect instance, Type[] excludePrivate)
+        {
+            LoopInheritance(serializer, instance, typeof(Effect), excludePrivate);
         }
         protected override void AccessInstance(SerializationWriter writer, object instance, Type type, int count, bool privateExcluded)
         {
@@ -110,10 +91,10 @@ namespace BeastScribe.Scribes
                 FieldInfo field = fields[i];
                 if (count == 0)
                 {
-                    if ((field.Attributes & Attributes) == 0)
+                    if ((field.Attributes & Mask) == 0)
                         serializeableCount++;
                 }
-                else if (!privateExcluded && field.IsPrivate && ((field.Attributes & Attributes) == 0))
+                else if (!privateExcluded && field.IsPrivate && ((field.Attributes & Mask) == 0))
                     serializeableCount++;
             }
             writer.WriteOptimized(serializeableCount);
@@ -124,14 +105,14 @@ namespace BeastScribe.Scribes
                 FieldInfo field = fields[i];
                 if (count == 0)
                 {
-                    if ((field.Attributes & Attributes) == 0)
+                    if ((field.Attributes & Mask) == 0)
                     {
                         writer.WriteOptimized(field.Name);
                         writer.WriteObject(field.GetValue(instance));
                         serializeableCount--;
                     }
                 }
-                else if (!privateExcluded && field.IsPrivate && ((field.Attributes & Attributes) == 0)) //ensured that only private fields of base classes are serialized, not protected ones
+                else if (!privateExcluded && field.IsPrivate && ((field.Attributes & Mask) == 0)) //ensured that only private fields of base classes are serialized, not protected ones
                 {
                     writer.WriteOptimized(field.Name);
                     writer.WriteObject(field.GetValue(instance));
@@ -151,7 +132,7 @@ namespace BeastScribe.Scribes
         {
 
         }
-        protected override void AccessInstance(SerializationReader reader, object instance, Type type, int count, bool privateEcxluded)
+        protected override void AccessInstance(SerializationReader reader, object instance, Type type, int count, bool privateExcluded)
         {
             BindingFlags flags = count == 0 ? InheritorFlags : BaseTypeFlags;
             FieldInfo[] fields = type.GetFields(flags);
