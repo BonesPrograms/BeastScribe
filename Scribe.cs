@@ -15,9 +15,9 @@ namespace BeastScribe.Scribes
         protected const BindingFlags InheritorFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;//will include all inherited protected and public fields
         protected const BindingFlags BaseTypeFlags = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly; //will include protected fields that the inheritor has 
                                                                                                                                  // already serialized, needs further sifting to only be private                                                                
-        public BaseScribe()
-        {
-
+        private protected BaseScribe()                                                                  
+        {                                                                                               
+                                                                                                        
         }
         protected abstract void AccessInstance(T serializer, object instance, Type type, int count, bool privateExcluded);
 
@@ -63,8 +63,6 @@ namespace BeastScribe.Scribes
 
     public sealed class ScribeWriter : BaseScribe<SerializationWriter>
     {
-
-        const FieldAttributes Mask = FieldAttributes.NotSerialized | FieldAttributes.Static | FieldAttributes.Literal;
         public static readonly ScribeWriter Writer = new();
         ScribeWriter()
         {
@@ -91,10 +89,10 @@ namespace BeastScribe.Scribes
                 FieldInfo field = fields[i];
                 if (count == 0)
                 {
-                    if ((field.Attributes & Mask) == 0)
+                    if (!field.IsNotSerialized)
                         serializeableCount++;
                 }
-                else if (!privateExcluded && field.IsPrivate && ((field.Attributes & Mask) == 0))
+                else if (!privateExcluded && field.IsPrivate && !field.IsNotSerialized)
                     serializeableCount++;
             }
             writer.WriteOptimized(serializeableCount);
@@ -105,14 +103,14 @@ namespace BeastScribe.Scribes
                 FieldInfo field = fields[i];
                 if (count == 0)
                 {
-                    if ((field.Attributes & Mask) == 0)
+                    if (!field.IsNotSerialized)
                     {
                         writer.WriteOptimized(field.Name);
                         writer.WriteObject(field.GetValue(instance));
                         serializeableCount--;
                     }
                 }
-                else if (!privateExcluded && field.IsPrivate && ((field.Attributes & Mask) == 0)) //ensured that only private fields of base classes are serialized, not protected ones
+                else if (!privateExcluded && field.IsPrivate && !field.IsNotSerialized) //ensured that only private fields of base classes are serialized, not protected ones
                 {
                     writer.WriteOptimized(field.Name);
                     writer.WriteObject(field.GetValue(instance));
