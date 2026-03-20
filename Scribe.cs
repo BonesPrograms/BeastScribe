@@ -6,6 +6,7 @@ using System.Linq;
 using System.Collections.Generic;
 using System.ComponentModel;
 using XRL.World.Parts;
+using System.EnterpriseServices;
 
 namespace BeastScribe.Scribes
 {
@@ -82,43 +83,46 @@ namespace BeastScribe.Scribes
 
         protected override void AccessInstance(SerializationWriter writer, object instance, Type type, int count, bool privateExcluded)
         {
-            BindingFlags flags = count == 0 ? InheritorFlags : BaseTypeFlags;
-            FieldInfo[] fields = type.GetFields(flags);
-            int size = fields.Length;
-            int serializeableCount = 0;
-            for (int i = 0; i < size; i++)
+            if (!privateExcluded)
             {
-                FieldInfo field = fields[i];
-                if (count == 0)
+                BindingFlags flags = count == 0 ? InheritorFlags : BaseTypeFlags;
+                FieldInfo[] fields = type.GetFields(flags);
+                int size = fields.Length;
+                int serializeableCount = 0;
+                for (int i = 0; i < size; i++)
                 {
-                    if (!field.IsNotSerialized)
+                    FieldInfo field = fields[i];
+                    if (count == 0)
+                    {
+                        if (!field.IsNotSerialized)
+                            serializeableCount++;
+                    }
+                    else if (field.IsPrivate && !field.IsNotSerialized)
                         serializeableCount++;
                 }
-                else if (!privateExcluded && field.IsPrivate && !field.IsNotSerialized)
-                    serializeableCount++;
-            }
-            writer.WriteOptimized(serializeableCount);
-            for (int i = 0; i < size; i++)
-            {
-                if (serializeableCount <= 0)
-                    break;
-                FieldInfo field = fields[i];
-                if (count == 0)
+                writer.WriteOptimized(serializeableCount);
+                for (int i = 0; i < size; i++)
                 {
-                    if (!field.IsNotSerialized)
+                    if (serializeableCount <= 0)
+                        break;
+                    FieldInfo field = fields[i];
+                    if (count == 0)
+                    {
+                        if (!field.IsNotSerialized)
+                        {
+                            writer.WriteOptimized(field.Name);
+                            writer.WriteObject(field.GetValue(instance));
+                            serializeableCount--;
+                        }
+                    }
+                    else if (field.IsPrivate && !field.IsNotSerialized) //ensured that only private fields of base classes are serialized, not protected ones
                     {
                         writer.WriteOptimized(field.Name);
                         writer.WriteObject(field.GetValue(instance));
                         serializeableCount--;
                     }
-                }
-                else if (!privateExcluded && field.IsPrivate && !field.IsNotSerialized) //ensured that only private fields of base classes are serialized, not protected ones
-                {
-                    writer.WriteOptimized(field.Name);
-                    writer.WriteObject(field.GetValue(instance));
-                    serializeableCount--;
-                }
 
+                }
             }
         }
 
@@ -171,7 +175,8 @@ namespace BeastScribe.Scribes
         {
             BindingFlags flags = count == 0 ? InheritorFlags : BaseTypeFlags;
             FieldInfo[] fields = type.GetFields(flags);
-            Read(reader, fields, instance);
+            if (!privateExcluded)
+                Read(reader, fields, instance);
 
         }
 
