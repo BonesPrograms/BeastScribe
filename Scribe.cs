@@ -52,7 +52,7 @@ namespace BeastScribe.Scribes
                             excludePrivateFields = true;
                     }
                 }
-                if(!excludePrivate)
+                if(!excludePrivateFields)
                 AccessInstance(serializer, instance, type, count);
                 type = type.BaseType;
                 count++;
