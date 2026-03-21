@@ -19,7 +19,7 @@ namespace BeastScribe.Scribes
         {
 
         }
-        protected abstract void AccessInstance(T serializer, object instance, Type type, int count, bool privateExcluded);
+        protected abstract void AccessInstance(T serializer, object instance, Type type, int count);
 
         public void Scribe(T serializer, Effect instance)
         {
@@ -52,7 +52,8 @@ namespace BeastScribe.Scribes
                             excludePrivateFields = true;
                     }
                 }
-                AccessInstance(serializer, instance, type, count, excludePrivateFields);
+                if(!excludePrivate)
+                AccessInstance(serializer, instance, type, count);
                 type = type.BaseType;
                 count++;
 
@@ -80,10 +81,8 @@ namespace BeastScribe.Scribes
         }
 
 
-        protected override void AccessInstance(SerializationWriter writer, object instance, Type type, int count, bool privateExcluded)
+        protected override void AccessInstance(SerializationWriter writer, object instance, Type type, int count)
         {
-            if (!privateExcluded)
-            {
                 BindingFlags flags = count == 0 ? InheritorFlags : BaseTypeFlags;
                 FieldInfo[] fields = type.GetFields(flags);
                 int size = fields.Length;
@@ -122,10 +121,9 @@ namespace BeastScribe.Scribes
                     }
 
                 }
-            }
         }
 
-        public void WriteDirect(SerializationWriter serializer, object instance)
+        public void ScribeDirect(SerializationWriter serializer, object instance)
         {
             Type type = instance.GetType();
             FieldInfo[] fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -164,20 +162,17 @@ namespace BeastScribe.Scribes
 
         }
 
-        public void ReadDirect(SerializationReader reader, object instance)
+        public void ScribeDirect(SerializationReader reader, object instance)
         {
             Type type = instance.GetType();
             FieldInfo[] fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             Read(reader, fields, instance);
         }
-        protected override void AccessInstance(SerializationReader reader, object instance, Type type, int count, bool privateExcluded)
+        protected override void AccessInstance(SerializationReader reader, object instance, Type type, int count)
         {
-            if (!privateExcluded)
-            {
                 BindingFlags flags = count == 0 ? InheritorFlags : BaseTypeFlags;
                 FieldInfo[] fields = type.GetFields(flags);
                 Read(reader, fields, instance);
-            }
 
         }
 
